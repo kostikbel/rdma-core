@@ -54,6 +54,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <stdarg.h>
+#include <sys/socket.h>
 
 #include <infiniband/umad.h>
 #include <infiniband/mad.h>
