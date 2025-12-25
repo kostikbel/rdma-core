@@ -53,3 +53,8 @@ if (ENABLE_STATIC)
   endif()
 endif()
 rdma_pkg_config("rdmacm" "${REQUIRES}libibverbs" "${CMAKE_THREAD_LIBS_INIT}")
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  find_package(epoll-shim REQUIRED)
+  target_link_libraries(rdmacm PRIVATE epoll-shim::epoll-shim)
+endif()
