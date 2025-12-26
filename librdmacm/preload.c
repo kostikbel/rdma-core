@@ -59,6 +59,8 @@
 #include "cma.h"
 #include "indexer.h"
 
+struct sf_dhtr;
+
 struct socket_calls {
 	int (*socket)(int domain, int type, int protocol);
 	int (*bind)(int socket, const struct sockaddr *addr, socklen_t addrlen);
@@ -88,7 +90,12 @@ struct socket_calls {
 			  void *optval, socklen_t *optlen);
 	int (*fcntl)(int socket, int cmd, ... /* arg */);
 	int (*dup2)(int oldfd, int newfd);
+#if defined __linux__
 	ssize_t (*sendfile)(int out_fd, int in_fd, off_t *offset, size_t count);
+#elif defined __FreeBSD__
+	int (*sendfile)(int out_fd, int in_fd, off_t offset, size_t count,
+			struct sf_hdtr *hdtr, off_t *sbytes, int flags);
+#endif
 	int (*fxstat)(int ver, int fd, struct stat *buf);
 };
 
@@ -1161,23 +1168,53 @@ int dup2(int oldfd, int newfd)
 	return newfd;
 }
 
+#if defined __linux__
 ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
+#elif defined __FreeBSD__
+int sendfile(int out_fd, int in_fd, off_t offset, size_t count,
+    struct sf_hdtr *hdtr, off_t *sbytes, int flags)
+#else
+#error "Port me"
+#endif
 {
 	void *file_addr;
 	int fd;
 	size_t ret;
 
 	if (fd_get(out_fd, &fd) != fd_rsocket)
-		return real.sendfile(fd, in_fd, offset, count);
+		return
+#if defined __linux__
+		    real.sendfile(fd, in_fd, offset, count)
+#elif defined __FreeBSD__
+		    real.sendfile(fd, in_fd, offset, count, hdtr, sbytes, flags)
+#endif
+		    ;
 
-	file_addr = mmap(NULL, count, PROT_READ, 0, in_fd, offset ? *offset : 0);
-	if (file_addr == (void *) -1)
+#if defined __FreeBSD__
+	if (hdtr != NULL || flags != 0) {
+		errno = EOPNOTSUPP;
+		return (-1);
+	}
+#endif
+
+	file_addr = mmap(NULL, count, PROT_READ, 0, in_fd,
+#if defined __linux__
+	    offset ? *offset : 0
+#elif defined __FreeBSD__
+	    offset
+#endif
+	    );
+	if (file_addr == MAP_FAILED)
 		return -1;
 
 	ret = rwrite(fd, file_addr, count);
 	if ((ret > 0) && offset)
 		lseek(in_fd, ret, SEEK_CUR);
 	munmap(file_addr, count);
+#if defined __FreeBSD__
+	if (sbytes != NULL)
+		*sbytes = ret;
+#endif
 	return ret;
 }
 
