@@ -149,6 +149,13 @@ static void free_config(void)
 	free(config);
 }
 
+#ifdef __FreeBSD__
+#include <libgen.h>
+
+char program_invocation_short_name_buf[256];
+char *program_invocation_short_name;
+#endif
+
 /*
  * Config file format:
  * # Starting '#' indicates comment
@@ -435,6 +442,11 @@ static void init_preload_act(void)
 
 	getenv_options();
 	scan_config();
+#ifdef __FreeBSD__
+	strlcpy(program_invocation_short_name_buf, getprogname(),
+	    sizeof(program_invocation_short_name_buf));
+	program_invocation_short_name = basename(program_invocation_short_name_buf);
+#endif
 }
 
 static void init_preload(void)
