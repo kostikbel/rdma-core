@@ -19,6 +19,10 @@ publish_internal_headers(infiniband
 configure_file("libibverbs.map.in"
   "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map" @ONLY)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+   set(SYSDEP_SOURCES init-sysfs.c sysfs-sysfs.c)
+endif()
+
 rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   # See Documentation/versioning.md
   1 1.16.${PACKAGE_VERSION}
@@ -54,8 +58,8 @@ rdma_library(ibverbs "${CMAKE_CURRENT_BINARY_DIR}/libibverbs.map"
   memory.c
   neigh.c
   static_driver.c
-  sysfs.c
   verbs.c
+  ${SYSDEP_SOURCES}
   )
 target_link_libraries(ibverbs LINK_PRIVATE
   ${NL_LIBRARIES}
